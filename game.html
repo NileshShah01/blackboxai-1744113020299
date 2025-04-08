@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Chess Game</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/nmrugg/stockfish.js@latest/src/stockfish.js"></script>
+    <script src="script.js" defer></script>
+    <style>
+        .piece {
+            transition: transform 0.2s ease, filter 0.2s ease;
+            cursor: grab;
+        }
+        .piece:hover {
+            transform: scale(1.1);
+            filter: drop-shadow(0 0 8px rgba(255, 255, 0, 0.7));
+        }
+        .piece.selected {
+            transform: scale(1.15);
+            filter: drop-shadow(0 0 12px rgba(0, 255, 0, 0.8));
+        }
+        .valid-move {
+            background: radial-gradient(circle, rgba(0,255,0,0.3) 25%, transparent 25%);
+        }
+        [data-theme='dark'] .square-light {
+            background-color: #779556;
+        }
+        [data-theme='dark'] .square-dark {
+            background-color: #ebecd0;
+        }
+    </style>
+</head>
+<body class="font-montserrat bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
+    <!-- Tutorial Modal -->
+    <div id="tutorial-modal" class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h2 class="text-3xl font-bold mb-6 text-gray-900 dark:text-white">Chess Tutorial</h2>
+            
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold mb-3 text-gray-800 dark:text-gray-200">How to Play</h3>
+                <p class="text-gray-700 dark:text-gray-300 mb-4">
+                    Chess is a two-player strategy game where the objective is to checkmate the opponent's king.
+                </p>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
+                        <h4 class="font-medium mb-2 text-gray-800 dark:text-gray-200">Basic Rules</h4>
+                        <ul class="list-disc pl-5 text-gray-700 dark:text-gray-300 space-y-1">
+                            <li>White moves first</li>
+                            <li>Pieces move in specific ways</li>
+                            <li>Capture opponent's pieces</li>
+                            <li>Checkmate wins the game</li>
+                        </ul>
+                    </div>
+                    <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
+                        <h4 class="font-medium mb-2 text-gray-800 dark:text-gray-200">Special Moves</h4>
+                        <ul class="list-disc pl-5 text-gray-700 dark:text-gray-300 space-y-1">
+                            <li>Castling</li>
+                            <li>En passant</li>
+                            <li>Pawn promotion</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end">
+                <button id="close-tutorial" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition">
+                    Start Playing
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Modern Chess</h1>
+            <div class="flex space-x-4">
+                <button id="theme-toggle" class="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                    <i class="fas fa-moon dark:hidden"></i>
+                    <i class="fas fa-sun hidden dark:block"></i>
+                </button>
+                <button id="help-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
+                    <i class="fas fa-question-circle mr-2"></i>Help
+                </button>
+            </div>
+        </header>
+
+        <div class="flex flex-col lg:flex-row gap-8">
+            <!-- Game Board -->
+            <div class="flex-1">
+                <div id="board" class="grid grid-cols-8 gap-0 w-full max-w-2xl mx-auto shadow-xl rounded-lg overflow-hidden"></div>
+                
+                <div class="mt-6 flex flex-wrap gap-3 justify-center">
+                    <button id="undo" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg transition flex items-center">
+                        <i class="fas fa-undo mr-2"></i>Undo
+                    </button>
+                    <button id="reset" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition flex items-center">
+                        <i class="fas fa-sync-alt mr-2"></i>Reset
+                    </button>
+                    <button id="suggest" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition flex items-center">
+                        <i class="fas fa-robot mr-2"></i>AI Move
+                    </button>
+                </div>
+            </div>
+
+            <!-- Game Info Panel -->
+            <div class="w-full lg:w-64 bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                <div id="status" class="text-lg font-semibold mb-4 text-gray-900 dark:text-white"></div>
+                
+                <div class="mb-6">
+                    <h3 class="text-md font-medium mb-2 text-gray-800 dark:text-gray-200">Move History</h3>
+                    <div id="move-history" class="bg-gray-100 dark:bg-gray-700 p-3 rounded h-48 overflow-y-auto text-sm"></div>
+                </div>
+
+                <div>
+                    <h3 class="text-md font-medium mb-2 text-gray-800 dark:text-gray-200">Game Controls</h3>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="sound-toggle" class="mr-2" checked>
+                            <span class="text-gray-700 dark:text-gray-300">Sound Effects</span>
+                        </label>
+                        <div class="flex items-center">
+                            <span class="text-gray-700 dark:text-gray-300 mr-2">AI Level:</span>
+                            <select id="ai-level" class="bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm">
+                                <option value="1">Easy</option>
+                                <option value="3">Medium</option>
+                                <option value="5" selected>Hard</option>
+                                <option value="8">Expert</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
